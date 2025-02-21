@@ -1,29 +1,38 @@
 import { useEffect, useState } from "react";
 import Login from "@/components/login";
-import { useSession, signIn } from "next-auth/react";
-import { Session } from "next-auth";
+import { useSession } from "next-auth/react";
 
 interface Artist {
   id: string;
   name: string;
 }
 
-interface ExtendedSession extends Session {
-  accessToken?: string;
+interface Event {
+  id: string;
+  performance: {
+    artist: {
+      displayName: string;
+    };
+  }[];
+  venue: {
+    displayName: string;
+  };
+  start: {
+    date: string;
+  };
 }
 
 export default function Home() {
-  const { data: session } = useSession() as { data: ExtendedSession | null };
+  const { data: session } = useSession();
   const [topArtists, setTopArtists] = useState<Artist[]>([]);
   const [relatedArtists, setRelatedArtists] = useState<Artist[]>([]);
   const [location, setLocation] = useState<GeolocationPosition | null>(null);
-  const [events, setEvents] = useState<any[]>([]);
-  const [artistsInEvents, setArtistsInEvents] = useState<Artist[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [artistsInEvents, setArtistsInEvents] = useState<Event[]>([]);
 
   useEffect(() => {
-    console.log("session", session);
-    if (session && session.accessToken) {
-      fetch(`/api/spotify/top-artists?accessToken=${session.accessToken}`)
+    if (session) {
+      fetch(`/api/spotify/top-artists`)
         .then(res => res.json())
         .then(data => setTopArtists(data.items))
         .catch(error => console.error("Error fetching top artists:", error));
@@ -33,7 +42,7 @@ export default function Home() {
   const findRelatedArtists = async () => {
     const artistIds = topArtists.map(artist => artist.id).join(",");
     const response = await fetch(
-      `/api/spotify/related-artists?ids=${artistIds}&accessToken=${session?.accessToken}`
+      `/api/spotify/related-artists?ids=${artistIds}`
     );
     const data = await response.json();
     setRelatedArtists(data);
@@ -44,7 +53,6 @@ export default function Home() {
       `/api/songkick/get-events?lat=${location?.coords.latitude}&lng=${location?.coords.longitude}`
     );
     const data = await response.json();
-    console.log("data", data);
     setEvents(data);
   };
 
@@ -53,7 +61,6 @@ export default function Home() {
     const eventsWithArtists = events.filter(event =>
       artistNames.includes(event.performance[0]?.artist.displayName)
     );
-    console.log("eventsWithArtists", eventsWithArtists);
     setArtistsInEvents(eventsWithArtists);
   };
 
@@ -92,7 +99,7 @@ export default function Home() {
           <br />
           {events.length > 0 && location && (
             <button onClick={findArtistsInEvents}>
-              Find artists in events{" "}
+              Find artists in events
             </button>
           )}
           {events.length > 0 && location && (
