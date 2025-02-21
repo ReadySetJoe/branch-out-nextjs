@@ -14,6 +14,7 @@ interface Event {
   performance: {
     id: string;
     artist: {
+      id: string;
       displayName: string;
     };
   }[];
@@ -188,7 +189,7 @@ export default function Home() {
             </div>
           )}
           <br />
-          {events.length > 0 && location && (
+          {events.length > 0 && location && !artistsInEvents.length && (
             <button className="btn" onClick={findArtistsInEvents}>
               Let&apos;s find some shows!
             </button>
