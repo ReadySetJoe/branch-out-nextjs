@@ -25,13 +25,11 @@ export default async function handler(
       const response = await fetch(
         `${SONGKICK_API_URL}?location=geo:${lat},${lng}&apikey=${SONGKICK_API_KEY}&page=${page}`
       );
-      console.log("response", response);
       if (!response.ok) {
         throw new Error("Failed to fetch data from Songkick API");
       }
 
       const data = await response.json();
-      console.log("data", data);
       event = data.resultsPage.results.event;
       if (!event || event.length === 0) {
         tries++;
