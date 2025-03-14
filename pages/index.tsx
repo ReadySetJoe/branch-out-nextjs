@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Spinner from "@/components/spinner";
 import Checkmark from "@/components/checkmark";
 import Landing from "@/components/landing";
@@ -9,29 +9,20 @@ interface Artist {
   id: string;
   name: string;
 }
+
 interface Event {
   id: string;
-  performance: {
-    id: string;
-    artist: {
-      id: string;
-      displayName: string;
-    };
-  }[];
-  venue: {
-    displayName: string;
+  name: string;
+  url: string;
+  images: { url: string }[];
+  performance: { artist: { displayName: string } }[];
+  dates: { start: { localDate: string } };
+  _embedded?: {
+    attractions?: { id: string; name: string }[];
+    venues?: { name: string }[];
   };
-  start: {
-    date: string;
-    time: string;
-  };
-  displayName: string;
-  location: {
-    city: string;
-  };
-  status: string;
-  uri: string;
 }
+
 interface Playlist {
   id: string;
   name: string;
@@ -77,33 +68,7 @@ export default function Home() {
     }
   }, [session, topArtists]);
 
-  useEffect(() => {
-    if (relatedArtists.length > 0 && location && !events.length) {
-      findEvents();
-    }
-  }, [relatedArtists, location, events]);
-
-  const findLocation = () => {
-    setLoadingMessage("Finding your location...");
-    setError(null);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          setLocation(position);
-          setLoadingMessage("");
-        },
-        error => {
-          setError("Error finding location: " + error.message);
-          setLoadingMessage("");
-        }
-      );
-    } else {
-      setError("Geolocation is not supported by this browser.");
-      setLoadingMessage("");
-    }
-  };
-
-  const findEvents = async () => {
+  const findEvents = async (location: GeolocationPosition) => {
     setLoadingMessage("Finding events near you...");
     setError(null);
     try {
@@ -119,12 +84,37 @@ export default function Home() {
     }
   };
 
+  const findLocation = () => {
+    setLoadingMessage("Finding your location...");
+    setError(null);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          setLocation(position);
+          setLoadingMessage("");
+          findEvents(position);
+        },
+        error => {
+          setError("Error finding location: " + error.message);
+          setLoadingMessage("");
+        }
+      );
+    } else {
+      setError("Geolocation is not supported by this browser.");
+      setLoadingMessage("");
+    }
+  };
+
   const findArtistsInEvents = () => {
     const artistNames = relatedArtists.map(artist => artist.name);
     const eventsWithArtists = events.filter(event =>
-      artistNames.includes(event.performance[0]?.artist.displayName)
+      artistNames.some(artistName => event.name.includes(artistName))
     );
-    setArtistsInEvents(eventsWithArtists);
+    const uniqueEvents = eventsWithArtists.filter(
+      (event, index, self) =>
+        index === self.findIndex(e => e.name === event.name)
+    );
+    setArtistsInEvents(uniqueEvents);
   };
 
   const createPlaylist = async () => {
@@ -226,31 +216,33 @@ export default function Home() {
             {artistsInEvents.map(event => (
               <a
                 key={event.id}
-                href={event.uri}
+                href={event.url} //
                 target="_blank"
                 rel="noreferrer"
                 className="border border-gray-700 flex flex-col justify-between"
               >
                 <img
-                  src={`https://images.sk-static.com/images/media/profile_images/artists/${event.performance[0].artist.id}/huge_avatar`}
-                  alt={event.performance[0].artist.displayName}
+                  src={event.images[0]?.url}
+                  alt={event.name}
                   className="w-full h-auto object-cover"
                 />
                 <div className="p-3 flex flex-col flex-grow">
-                  <h3 className="text-md font-bold mb-3">
-                    {event.displayName}
-                  </h3>
+                  <h3 className="text-md font-bold mb-3">{event.name}</h3>
                   <div className="flex justify-between flex-grow">
                     <div className="self-end">
-                      {event.performance.map(performance => (
-                        <p key={performance.id} className="text-gray-600">
-                          {performance.artist.displayName}
+                      {event._embedded?.attractions?.map(attraction => (
+                        <p key={attraction.id} className="text-gray-600">
+                          {attraction.name}
                         </p>
                       ))}
                     </div>
                     <div className="self-end text-right">
-                      <p className="text-gray-600">{event.venue.displayName}</p>
-                      <p className="text-gray-600">{event.location.city}</p>
+                      <p className="text-gray-600">
+                        {event._embedded?.venues?.[0]?.name ?? "Unknown Venue"}
+                      </p>{" "}
+                      <p className="text-gray-600">
+                        {event.dates.start.localDate}
+                      </p>{" "}
                     </div>
                   </div>
                 </div>

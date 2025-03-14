@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const SONGKICK_API_KEY = process.env.SONGKICK_API_KEY;
-const SONGKICK_API_URL = "https://api.songkick.com/api/3.0/events.json";
+const TICKETMASTER_API_KEY = process.env.TICKETMASTER_API_KEY;
+const TICKETMASTER_API_URL =
+  "https://app.ticketmaster.com/discovery/v2/events.json";
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,28 +18,27 @@ export default async function handler(
 
   try {
     const events = [];
-    let page = 1;
-    let tries = 0;
+    let page = 0;
     let event;
 
     do {
       const response = await fetch(
-        `${SONGKICK_API_URL}?location=geo:${lat},${lng}&apikey=${SONGKICK_API_KEY}&page=${page}`
+        `${TICKETMASTER_API_URL}?apikey=${TICKETMASTER_API_KEY}&latlong=${lat},${lng}&classificationName=music&page=${page}&sort=distance,asc`
       );
+      console.log("response", response);
       if (!response.ok) {
-        throw new Error("Failed to fetch data from Songkick API");
+        throw new Error("Failed to fetch data from the Ticketmaster API");
       }
 
       const data = await response.json();
-      event = data.resultsPage.results.event;
-      if (!event || event.length === 0) {
-        tries++;
-      } else {
+      event = data._embedded?.events;
+      if (event && event.length > 0) {
         events.push(...event);
         page++;
-        tries = 0;
+      } else {
+        break;
       }
-    } while (event && event.length > 0 && tries < 10);
+    } while (event && event.length > 0 && page < 10);
 
     res.status(200).json(events);
   } catch (error) {
