@@ -6,20 +6,24 @@ interface EventSortingProps {
   disabled?: boolean;
 }
 
-export default function EventSorting({ sortBy, onSortChange, disabled }: EventSortingProps) {
+export default function EventSorting({
+  sortBy,
+  onSortChange,
+  disabled,
+}: EventSortingProps) {
   return (
-    <div className="flex items-center gap-4 mb-4">
-      <label className="text-sm font-medium text-gray-700">Sort by:</label>
+    <div className="flex items-center gap-2">
+      <label className="text-sm text-[var(--text-muted)]">Sort:</label>
       <select
         value={sortBy}
-        onChange={(e) => onSortChange(e.target.value as SortOption)}
+        onChange={e => onSortChange(e.target.value as SortOption)}
         disabled={disabled}
-        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="input py-1.5 px-3 text-sm w-auto"
       >
         <option value="match">Best Match</option>
-        <option value="date">Date (Soonest First)</option>
-        <option value="price">Price (Low to High)</option>
-        <option value="name">Event Name (A-Z)</option>
+        <option value="date">Date</option>
+        <option value="price">Price</option>
+        <option value="name">Name</option>
       </select>
     </div>
   );

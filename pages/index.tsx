@@ -356,28 +356,30 @@ export default function Home() {
   };
 
   return (
-    <main className="flex flex-col container mx-auto p-4">
+    <main className="min-h-screen">
       {loadingMessage && <Spinner message={loadingMessage} />}
 
       {!session && <Landing />}
 
       {session && session.user && (
-        <>
-          <h2 className="text-2xl font-bold mb-2">
-            Welcome, {session.user.name}
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Let&apos;s find concerts near you featuring artists you&apos;ll
-            love.
-          </p>
+        <div className="container mx-auto px-4 py-8">
+          {/* Welcome Header */}
+          <div className="mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              Welcome back, {session.user.name?.split(" ")[0]}
+            </h2>
+            <p className="text-[var(--text-secondary)]">
+              Let&apos;s find concerts featuring artists you&apos;ll love.
+            </p>
+          </div>
 
           {/* Progress Steps */}
           <ProgressSteps steps={progressSteps} />
 
           {/* Location Selection */}
           {allArtists.length > 0 && !location && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">
+            <div className="mb-8">
+              <h3 className="text-xl font-semibold text-white mb-4">
                 Where are you looking for events?
               </h3>
               <LocationInput
@@ -388,7 +390,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Filters and Sorting */}
+          {/* Filters and Results */}
           {location && (
             <>
               <EventFilters
@@ -396,33 +398,51 @@ export default function Home() {
                 disabled={loadingEvents}
               />
 
+              {/* Scanning Progress */}
               {scanProgress && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-blue-700">
-                    Scanning events... (page {scanProgress.current} of{" "}
-                    {scanProgress.total})
-                    {matchedEvents.length > 0 &&
-                      ` - Found ${matchedEvents.length} matches so far`}
-                  </p>
+                <div className="mb-6 p-4 rounded-xl bg-[var(--surface)] border border-[var(--primary)]/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
+                    <p className="text-[var(--text-secondary)]">
+                      Scanning events... (page {scanProgress.current} of{" "}
+                      {scanProgress.total})
+                      {matchedEvents.length > 0 && (
+                        <span className="text-[var(--primary)] font-medium ml-2">
+                          {matchedEvents.length} matches found
+                        </span>
+                      )}
+                    </p>
+                  </div>
                 </div>
               )}
 
+              {/* Results Header */}
               {filteredAndSortedEvents.length > 0 && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                  <div className="mb-2 sm:mb-0">
-                    <h3 className="text-lg font-semibold">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">
                       {filteredAndSortedEvents.length} Matching Events
                     </h3>
+                    <p className="text-sm text-[var(--text-muted)]">
+                      Showing page {currentPage + 1} of {totalPages || 1}
+                    </p>
                   </div>
-                  <div className="flex gap-4 items-center">
+                  <div className="flex gap-3 items-center">
                     <EventSorting
                       sortBy={sortBy}
                       onSortChange={setSortBy}
                       disabled={loadingEvents}
                     />
                     {matchedEvents.length > 0 && (
-                      <button className="btn" onClick={createPlaylist}>
-                        Export to Playlist
+                      <button className="btn flex items-center gap-2" onClick={createPlaylist}>
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                        </svg>
+                        Export Playlist
                       </button>
                     )}
                   </div>
@@ -433,24 +453,39 @@ export default function Home() {
 
           {/* Playlist Created Message */}
           {playlist && (
-            <div className="mb-4 p-4 bg-green-100 border border-green-400 rounded-lg">
-              <p className="text-green-700">
-                Created playlist:{" "}
-                <a
-                  href={playlist.uri}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-bold underline"
+            <div className="mb-6 p-4 rounded-xl bg-[var(--primary)]/10 border border-[var(--primary)]/30">
+              <div className="flex items-center gap-3">
+                <svg
+                  className="w-5 h-5 text-[var(--primary)]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  {playlist.name}
-                </a>
-              </p>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <p className="text-[var(--text-secondary)]">
+                  Playlist created!{" "}
+                  <a
+                    href={playlist.uri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-[var(--primary)] hover:underline"
+                  >
+                    Open in Spotify
+                  </a>
+                </p>
+              </div>
             </div>
           )}
 
           {/* Events Grid */}
           {displayedEvents.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {displayedEvents.map((event, index) => (
                 <EventCard key={event.id} event={event} index={index} />
               ))}
@@ -463,11 +498,26 @@ export default function Home() {
             matchedEvents.length === 0 &&
             !loadingEvents &&
             !scanProgress && (
-              <div className="text-center py-8">
-                <p className="text-gray-600 mb-2">
+              <div className="text-center py-16">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--surface)] flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-[var(--text-muted)]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-[var(--text-secondary)] mb-2">
                   No events found matching your music taste in this area.
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[var(--text-muted)]">
                   Try adjusting your search radius or date range.
                 </p>
               </div>
@@ -475,27 +525,77 @@ export default function Home() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-8">
+            <div className="flex items-center justify-center gap-2 mt-10">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 0 || loadingEvents}
-                className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50"
+                className="btn-secondary px-4 py-2 flex items-center gap-1"
               >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
                 Previous
               </button>
-              <span className="px-4 py-2">
-                Page {currentPage + 1} of {totalPages}
-              </span>
+              <div className="flex items-center gap-1 px-4">
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i;
+                  } else if (currentPage < 3) {
+                    pageNum = i;
+                  } else if (currentPage > totalPages - 4) {
+                    pageNum = totalPages - 5 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                        currentPage === pageNum
+                          ? "bg-[var(--primary)] text-white"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                      }`}
+                    >
+                      {pageNum + 1}
+                    </button>
+                  );
+                })}
+              </div>
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage >= totalPages - 1 || loadingEvents}
-                className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50"
+                className="btn-secondary px-4 py-2 flex items-center gap-1"
               >
                 Next
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
     </main>
   );
