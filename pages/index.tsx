@@ -55,10 +55,14 @@ export default function Home() {
   }>({ radius: 50 });
   const [sortBy, setSortBy] = useState<SortOption>("match");
 
-  // Pagination
+  // Pagination - now client-side over matched events
   const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const EVENTS_PER_PAGE = 12;
 
   // Progress steps
   const progressSteps = useMemo(() => {
@@ -186,63 +190,76 @@ export default function Home() {
   // Auto-fetch events when location changes
   useEffect(() => {
     if (location && allArtists.length > 0) {
-      findEvents(location, 0);
+      findAllEvents(location);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, filters, allArtists]);
 
-  const findEvents = async (
-    loc: { lat: number; lng: number },
-    page: number = 0
-  ) => {
+  const findAllEvents = async (loc: { lat: number; lng: number }) => {
     setLoadingEvents(true);
     setError(null);
+    setEvents([]);
+    setMatchedEvents([]);
+    setCurrentPage(0);
+    setScanProgress(null);
 
     try {
-      const params = new URLSearchParams({
-        lat: loc.lat.toString(),
-        lng: loc.lng.toString(),
-        radius: filters.radius.toString(),
-        page: page.toString(),
-      });
+      const allEvents: any[] = [];
+      const allMatched: MatchedEvent[] = [];
+      let page = 0;
+      let totalPages = 1;
 
-      if (filters.dateFrom) params.append("startDateTime", filters.dateFrom);
-      if (filters.dateTo) params.append("endDateTime", filters.dateTo);
+      // Fetch all pages from the API
+      while (page < totalPages) {
+        const params = new URLSearchParams({
+          lat: loc.lat.toString(),
+          lng: loc.lng.toString(),
+          radius: filters.radius.toString(),
+          page: page.toString(),
+          size: "50",
+        });
 
-      const response = await fetch(`/api/songkick/get-events?${params}`);
-      const data = await response.json();
+        if (filters.dateFrom) params.append("startDateTime", filters.dateFrom);
+        if (filters.dateTo) params.append("endDateTime", filters.dateTo);
 
-      if (data.error) {
-        throw new Error(data.error);
+        const response = await fetch(`/api/songkick/get-events?${params}`);
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Update total pages from first response
+        if (page === 0) {
+          totalPages = data.pagination?.totalPages || 1;
+        }
+
+        setScanProgress({ current: page + 1, total: totalPages });
+
+        const pageEvents = data.events || [];
+        allEvents.push(...pageEvents);
+
+        // Match events from this page
+        if (pageEvents.length > 0) {
+          const matched = matchEventsWithArtists(pageEvents, allArtists, 0.7);
+          allMatched.push(...matched);
+
+          // Update state progressively so user sees results as they come in
+          setEvents([...allEvents]);
+          setMatchedEvents([...allMatched]);
+        }
+
+        page++;
       }
 
-      setEvents(data.events || []);
-      setTotalPages(data.pagination?.totalPages || 0);
-      setCurrentPage(page);
-
-      // Automatically match events with artists
-      if (data.events && data.events.length > 0) {
-        // Debug: Log event structure to understand matching
-        console.log("Events from API:", data.events.length);
-        console.log("Sample event:", JSON.stringify(data.events[0], null, 2));
-        console.log(
-          "Sample attractions:",
-          data.events[0]?._embedded?.attractions
-        );
-        console.log("All artists count:", allArtists.length);
-
-        const matched = matchEventsWithArtists(data.events, allArtists, 0.7);
-        console.log("Matched events:", matched.length);
-        setMatchedEvents(matched);
-      } else {
-        setMatchedEvents([]);
-      }
+      setScanProgress(null);
     } catch (error) {
       setError("Error fetching events: " + (error as any).message);
       setEvents([]);
       setMatchedEvents([]);
     } finally {
       setLoadingEvents(false);
+      setScanProgress(null);
     }
   };
 
@@ -306,8 +323,13 @@ export default function Home() {
     }
   };
 
+  // Reset to first page when filters or sort changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [filters, sortBy]);
+
   // Apply filters and sorting to matched events
-  const displayedEvents = useMemo(() => {
+  const filteredAndSortedEvents = useMemo(() => {
     const eventFilters: Filters = {
       dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
       dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
@@ -319,11 +341,18 @@ export default function Home() {
     return sortEvents(filtered, sortBy);
   }, [matchedEvents, filters, sortBy]);
 
+  // Client-side pagination
+  const totalPages = Math.ceil(
+    filteredAndSortedEvents.length / EVENTS_PER_PAGE
+  );
+  const displayedEvents = useMemo(() => {
+    const start = currentPage * EVENTS_PER_PAGE;
+    return filteredAndSortedEvents.slice(start, start + EVENTS_PER_PAGE);
+  }, [filteredAndSortedEvents, currentPage]);
+
   const handlePageChange = (newPage: number) => {
-    if (location) {
-      findEvents(location, newPage);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -367,11 +396,22 @@ export default function Home() {
                 disabled={loadingEvents}
               />
 
-              {matchedEvents.length > 0 && (
+              {scanProgress && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-blue-700">
+                    Scanning events... (page {scanProgress.current} of{" "}
+                    {scanProgress.total})
+                    {matchedEvents.length > 0 &&
+                      ` - Found ${matchedEvents.length} matches so far`}
+                  </p>
+                </div>
+              )}
+
+              {filteredAndSortedEvents.length > 0 && (
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                   <div className="mb-2 sm:mb-0">
                     <h3 className="text-lg font-semibold">
-                      {displayedEvents.length} Matching Events
+                      {filteredAndSortedEvents.length} Matching Events
                     </h3>
                   </div>
                   <div className="flex gap-4 items-center">
@@ -421,7 +461,8 @@ export default function Home() {
           {location &&
             events.length > 0 &&
             matchedEvents.length === 0 &&
-            !loadingEvents && (
+            !loadingEvents &&
+            !scanProgress && (
               <div className="text-center py-8">
                 <p className="text-gray-600 mb-2">
                   No events found matching your music taste in this area.
