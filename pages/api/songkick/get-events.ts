@@ -15,7 +15,7 @@ export default async function handler(
     startDateTime,
     endDateTime,
     page = "0",
-    size = "500",
+    size = "100",
   } = req.query;
 
   if (!lat || !lng) {
