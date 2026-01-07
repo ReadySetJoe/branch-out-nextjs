@@ -130,26 +130,29 @@ export default function Home() {
       setLoadingMessage("Fetching your top artists...");
       setError(null);
       
-      Promise.all([
-        fetch(`/api/spotify/top-artists`).then(res => res.json()),
-      ]).then(([topData]) => {
-        setTopArtists(topData.items);
-        setLoadingMessage("Fetching related artists...");
-        
-        return fetch(
-          `/api/spotify/related-artists?ids=${topData.items
-            .map((artist: Artist) => artist.id)
-            .join(",")}`
-        ).then(res => res.json());
-      }).then(relatedData => {
-        setRelatedArtists(relatedData);
-        // Combine top and related artists
-        const combined = [...topArtists, ...relatedData];
-        const uniqueArtists = Array.from(
-          new Map(combined.map(a => [a.id, a])).values()
-        );
-        setAllArtists(uniqueArtists);
-        setLoadingMessage("");
+      fetch(`/api/spotify/top-artists`)
+        .then(res => res.json())
+        .then(topData => {
+          setTopArtists(topData.items);
+          setLoadingMessage("Fetching related artists...");
+
+          return fetch(
+            `/api/spotify/related-artists?ids=${topData.items
+              .map((artist: Artist) => artist.id)
+              .join(",")}`
+          )
+            .then(res => res.json())
+            .then(relatedData => ({ topItems: topData.items, relatedData }));
+        })
+        .then(({ topItems, relatedData }) => {
+          setRelatedArtists(relatedData);
+          // Combine top and related artists - use topItems directly, not stale state
+          const combined = [...topItems, ...relatedData];
+          const uniqueArtists = Array.from(
+            new Map(combined.map(a => [a.id, a])).values()
+          );
+          setAllArtists(uniqueArtists);
+          setLoadingMessage("");
       }).catch(error => {
         setError("Error fetching artists: " + error.message);
         setLoadingMessage("");
