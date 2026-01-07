@@ -62,6 +62,7 @@ export default function Home() {
     current: number;
     total: number;
   } | null>(null);
+  const [partialResults, setPartialResults] = useState<string | null>(null);
   const EVENTS_PER_PAGE = 12;
 
   // Progress steps
@@ -202,15 +203,17 @@ export default function Home() {
     setMatchedEvents([]);
     setCurrentPage(0);
     setScanProgress(null);
+    setPartialResults(null);
 
-    try {
-      const allEvents: any[] = [];
-      const allMatched: MatchedEvent[] = [];
-      let page = 0;
-      let totalPages = 1;
+    const allEvents: any[] = [];
+    const allMatched: MatchedEvent[] = [];
+    let page = 0;
+    let totalPages = 1;
+    let stoppedEarly = false;
 
-      // Fetch all pages from the API
-      while (page < totalPages) {
+    // Fetch pages from the API until done or error
+    while (page < totalPages) {
+      try {
         const params = new URLSearchParams({
           lat: loc.lat.toString(),
           lng: loc.lng.toString(),
@@ -226,7 +229,18 @@ export default function Home() {
         const data = await response.json();
 
         if (data.error) {
-          throw new Error(data.error);
+          // API returned an error - stop fetching but keep what we have
+          stoppedEarly = true;
+          if (allEvents.length === 0) {
+            // No events fetched yet, show error
+            setError("Error fetching events: " + data.error);
+          } else {
+            // We have some events, show partial results message
+            setPartialResults(
+              `Showing partial results (${allEvents.length} events from ${page} of ${totalPages} pages due to API limit)`
+            );
+          }
+          break;
         }
 
         // Update total pages from first response
@@ -250,17 +264,32 @@ export default function Home() {
         }
 
         page++;
-      }
 
-      setScanProgress(null);
-    } catch (error) {
-      setError("Error fetching events: " + (error as any).message);
-      setEvents([]);
-      setMatchedEvents([]);
-    } finally {
-      setLoadingEvents(false);
-      setScanProgress(null);
+        // Add a small delay between requests to avoid rate limiting
+        if (page < totalPages) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      } catch (error) {
+        // Network or other error - stop fetching but keep what we have
+        stoppedEarly = true;
+        if (allEvents.length === 0) {
+          setError("Error fetching events: " + (error as any).message);
+        } else {
+          setPartialResults(
+            `Showing partial results (${allEvents.length} events from ${page} of ${totalPages} pages)`
+          );
+        }
+        break;
+      }
     }
+
+    // Final state update
+    if (!stoppedEarly && allEvents.length > 0) {
+      setPartialResults(null);
+    }
+
+    setLoadingEvents(false);
+    setScanProgress(null);
   };
 
   const handleLocationSelect = (selectedLocation: {
@@ -411,6 +440,30 @@ export default function Home() {
                           {matchedEvents.length} matches found
                         </span>
                       )}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Partial Results Warning */}
+              {partialResults && !scanProgress && (
+                <div className="mb-6 p-4 rounded-xl bg-[var(--surface)] border border-yellow-500/30">
+                  <div className="flex items-center gap-3">
+                    <svg
+                      className="w-5 h-5 text-yellow-500 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    <p className="text-[var(--text-secondary)] text-sm">
+                      {partialResults}
                     </p>
                   </div>
                 </div>
