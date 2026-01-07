@@ -5,8 +5,6 @@ interface EventFiltersProps {
     dateFrom?: string;
     dateTo?: string;
     radius: number;
-    priceMin?: number;
-    priceMax?: number;
   }) => void;
   disabled?: boolean;
 }
@@ -18,8 +16,6 @@ export default function EventFilters({
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [radius, setRadius] = useState<number>(50);
-  const [priceMin, setPriceMin] = useState<string>("");
-  const [priceMax, setPriceMax] = useState<string>("");
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Set default dates (today to 6 months from now)
@@ -37,10 +33,8 @@ export default function EventFilters({
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       radius,
-      priceMin: priceMin ? parseFloat(priceMin) : undefined,
-      priceMax: priceMax ? parseFloat(priceMax) : undefined,
     });
-  }, [dateFrom, dateTo, radius, priceMin, priceMax, onFiltersChange]);
+  }, [dateFrom, dateTo, radius, onFiltersChange]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "Any";
@@ -94,28 +88,6 @@ export default function EventFilters({
               {formatDate(dateFrom)} - {formatDate(dateTo)}
             </span>
           </div>
-
-          {/* Price Badge (if set) */}
-          {(priceMin || priceMax) && (
-            <div className="flex items-center gap-2">
-              <svg
-                className="w-4 h-4 text-[var(--text-muted)]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span className="text-sm text-[var(--text-secondary)]">
-                ${priceMin || "0"} - ${priceMax || "Any"}
-              </span>
-            </div>
-          )}
         </div>
 
         <button
@@ -171,6 +143,7 @@ export default function EventFilters({
                 </div>
               </div>
             </div>
+            <br />
 
             {/* Date From */}
             <div>
@@ -197,38 +170,6 @@ export default function EventFilters({
                 onChange={e => setDateTo(e.target.value)}
                 disabled={disabled}
                 min={dateFrom}
-                className="input"
-              />
-            </div>
-
-            {/* Price Min */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
-                Min Price ($)
-              </label>
-              <input
-                type="number"
-                value={priceMin}
-                onChange={e => setPriceMin(e.target.value)}
-                disabled={disabled}
-                placeholder="0"
-                min="0"
-                className="input"
-              />
-            </div>
-
-            {/* Price Max */}
-            <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
-                Max Price ($)
-              </label>
-              <input
-                type="number"
-                value={priceMax}
-                onChange={e => setPriceMax(e.target.value)}
-                disabled={disabled}
-                placeholder="No limit"
-                min="0"
                 className="input"
               />
             </div>
