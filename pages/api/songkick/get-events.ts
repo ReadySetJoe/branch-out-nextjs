@@ -8,7 +8,15 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { lat, lng } = req.query;
+  const { 
+    lat, 
+    lng, 
+    radius = "50",
+    startDateTime,
+    endDateTime,
+    page = "0",
+    size = "50"
+  } = req.query;
 
   if (!lat || !lng) {
     return res
@@ -17,30 +25,41 @@ export default async function handler(
   }
 
   try {
-    const events = [];
-    let page = 0;
-    let event;
+    const params = new URLSearchParams({
+      apikey: TICKETMASTER_API_KEY!,
+      latlong: `${lat},${lng}`,
+      classificationName: "music",
+      page: page.toString(),
+      size: size.toString(),
+      sort: "date,asc",
+      radius: radius.toString(),
+      unit: "miles",
+    });
 
-    do {
-      const response = await fetch(
-        `${TICKETMASTER_API_URL}?apikey=${TICKETMASTER_API_KEY}&latlong=${lat},${lng}&classificationName=music&page=${page}&sort=distance,asc`
-      );
-      console.log("response", response);
-      if (!response.ok) {
-        throw new Error("Failed to fetch data from the Ticketmaster API");
-      }
+    // Add date filters if provided
+    if (startDateTime) {
+      params.append("startDateTime", `${startDateTime}T00:00:00Z`);
+    }
+    if (endDateTime) {
+      params.append("endDateTime", `${endDateTime}T23:59:59Z`);
+    }
 
-      const data = await response.json();
-      event = data._embedded?.events;
-      if (event && event.length > 0) {
-        events.push(...event);
-        page++;
-      } else {
-        break;
-      }
-    } while (event && event.length > 0 && page < 10);
+    const response = await fetch(`${TICKETMASTER_API_URL}?${params}`);
 
-    res.status(200).json(events);
+    if (!response.ok) {
+      throw new Error("Failed to fetch data from the Ticketmaster API");
+    }
+
+    const data = await response.json();
+    const events = data._embedded?.events || [];
+    const pagination = {
+      size: data.page?.size || 0,
+      totalElements: data.page?.totalElements || 0,
+      totalPages: data.page?.totalPages || 0,
+      number: data.page?.number || 0
+    };
+
+    res.status(200).json({ events, pagination });
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "An unknown error occurred";

@@ -1,26 +1,26 @@
 /* eslint-disable @next/next/no-img-element */
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Spinner from "@/components/spinner";
-import Checkmark from "@/components/checkmark";
 import Landing from "@/components/landing";
+import LocationInput from "@/components/location-input";
+import EventFilters from "@/components/event-filters";
+import EventSorting from "@/components/event-sorting";
+import EventCard from "@/components/event-card";
+import ProgressSteps from "@/components/progress-steps";
+import { 
+  matchEventsWithArtists, 
+  filterEvents, 
+  sortEvents, 
+  type MatchedEvent, 
+  type EventFilters as Filters,
+  type SortOption 
+} from "@/lib/artist-matcher";
 
 interface Artist {
   id: string;
   name: string;
-}
-
-interface Event {
-  id: string;
-  name: string;
-  url: string;
-  images: { url: string }[];
-  performance: { artist: { displayName: string } }[];
-  dates: { start: { localDate: string } };
-  _embedded?: {
-    attractions?: { id: string; name: string }[];
-    venues?: { name: string }[];
-  };
+  images?: { url: string }[];
 }
 
 interface Playlist {
@@ -33,66 +33,199 @@ export default function Home() {
   const { data: session } = useSession();
   const [topArtists, setTopArtists] = useState<Artist[]>([]);
   const [relatedArtists, setRelatedArtists] = useState<Artist[]>([]);
-  const [location, setLocation] = useState<GeolocationPosition | null>(null);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [artistsInEvents, setArtistsInEvents] = useState<Event[]>([]);
+  const [allArtists, setAllArtists] = useState<Artist[]>([]);
+  const [location, setLocation] = useState<{ lat: number; lng: number; name?: string } | null>(null);
+  const [events, setEvents] = useState<any[]>([]);
+  const [matchedEvents, setMatchedEvents] = useState<MatchedEvent[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
+  
+  // Filter and sort states
+  const [filters, setFilters] = useState<{
+    dateFrom?: string;
+    dateTo?: string;
+    radius: number;
+    priceMin?: number;
+    priceMax?: number;
+  }>({ radius: 50 });
+  const [sortBy, setSortBy] = useState<SortOption>('match');
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  
+  // Progress steps
+  const progressSteps = useMemo(() => {
+    const steps: Array<{
+      id: string;
+      label: string;
+      status: 'pending' | 'loading' | 'completed' | 'error';
+      error?: string;
+    }> = [
+      {
+        id: 'artists',
+        label: topArtists.length > 0 
+          ? `Found ${topArtists.length} top artists and ${relatedArtists.length} related artists`
+          : 'Fetching your music taste from Spotify',
+        status: loadingMessage?.includes('artist') 
+          ? 'loading' 
+          : topArtists.length > 0 
+            ? 'completed' 
+            : 'pending'
+      },
+      {
+        id: 'location',
+        label: location 
+          ? `Location: ${location.name || 'Current location'}`
+          : 'Select your location',
+        status: loadingMessage?.includes('location') 
+          ? 'loading' 
+          : location 
+            ? 'completed' 
+            : 'pending'
+      },
+      {
+        id: 'events',
+        label: events.length > 0 
+          ? `Found ${events.length} events in your area`
+          : 'Search for events',
+        status: loadingEvents 
+          ? 'loading' 
+          : events.length > 0 
+            ? 'completed' 
+            : location 
+              ? 'pending'
+              : 'pending'
+      },
+      {
+        id: 'matches',
+        label: matchedEvents.length > 0 
+          ? `Matched ${matchedEvents.length} events with your music taste`
+          : 'Match events with your artists',
+        status: matchedEvents.length > 0 ? 'completed' : events.length > 0 ? 'pending' : 'pending'
+      }
+    ];
+    
+    // Add error state if needed
+    if (error) {
+      const errorStep = steps.find(s => 
+        (error.includes('artist') && s.id === 'artists') ||
+        (error.includes('location') && s.id === 'location') ||
+        (error.includes('event') && s.id === 'events')
+      );
+      if (errorStep) {
+        errorStep.status = 'error';
+        errorStep.error = error;
+      }
+    }
+    
+    return steps;
+  }, [topArtists, relatedArtists, location, events, matchedEvents, loadingMessage, loadingEvents, error]);
 
+  // Fetch artists on login
   useEffect(() => {
     if (session && !topArtists.length) {
-      setLoadingMessage("Fetching top artists...");
-      fetch(`/api/spotify/top-artists`)
-        .then(res => res.json())
-        .then(data => {
-          setTopArtists(data.items);
-          setLoadingMessage("Fetching related artists...");
-          fetch(
-            `/api/spotify/related-artists?ids=${data.items
-              .map((artist: Artist) => artist.id)
-              .join(",")}`
-          )
-            .then(res => res.json())
-            .then(data => {
-              setRelatedArtists(data);
-            })
-            .catch(error =>
-              setError("Error fetching related artists: " + error.message)
-            )
-            .finally(() => setLoadingMessage(""));
-        })
-        .catch(error =>
-          setError("Error fetching top artists: " + error.message)
+      setLoadingMessage("Fetching your top artists...");
+      setError(null);
+      
+      Promise.all([
+        fetch(`/api/spotify/top-artists`).then(res => res.json()),
+      ]).then(([topData]) => {
+        setTopArtists(topData.items);
+        setLoadingMessage("Fetching related artists...");
+        
+        return fetch(
+          `/api/spotify/related-artists?ids=${topData.items
+            .map((artist: Artist) => artist.id)
+            .join(",")}`
+        ).then(res => res.json());
+      }).then(relatedData => {
+        setRelatedArtists(relatedData);
+        // Combine top and related artists
+        const combined = [...topArtists, ...relatedData];
+        const uniqueArtists = Array.from(
+          new Map(combined.map(a => [a.id, a])).values()
         );
+        setAllArtists(uniqueArtists);
+        setLoadingMessage("");
+      }).catch(error => {
+        setError("Error fetching artists: " + error.message);
+        setLoadingMessage("");
+      });
     }
   }, [session, topArtists]);
 
-  const findEvents = async (location: GeolocationPosition) => {
-    setLoadingMessage("Finding events near you...");
+  // Auto-fetch events when location changes
+  useEffect(() => {
+    if (location && allArtists.length > 0) {
+      findEvents(location, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, filters, allArtists]);
+
+  const findEvents = async (loc: { lat: number; lng: number }, page: number = 0) => {
+    setLoadingEvents(true);
     setError(null);
+    
     try {
-      const response = await fetch(
-        `/api/songkick/get-events?lat=${location?.coords.latitude}&lng=${location?.coords.longitude}`
-      );
+      const params = new URLSearchParams({
+        lat: loc.lat.toString(),
+        lng: loc.lng.toString(),
+        radius: filters.radius.toString(),
+        page: page.toString(),
+        size: '20'
+      });
+      
+      if (filters.dateFrom) params.append('startDateTime', filters.dateFrom);
+      if (filters.dateTo) params.append('endDateTime', filters.dateTo);
+      
+      const response = await fetch(`/api/songkick/get-events?${params}`);
       const data = await response.json();
-      setEvents(data);
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      setEvents(data.events || []);
+      setTotalPages(data.pagination?.totalPages || 0);
+      setCurrentPage(page);
+      
+      // Automatically match events with artists
+      if (data.events && data.events.length > 0) {
+        const matched = matchEventsWithArtists(data.events, allArtists, 0.7);
+        setMatchedEvents(matched);
+      } else {
+        setMatchedEvents([]);
+      }
     } catch (error) {
       setError("Error fetching events: " + (error as any).message);
+      setEvents([]);
+      setMatchedEvents([]);
     } finally {
-      setLoadingMessage("");
+      setLoadingEvents(false);
     }
   };
 
-  const findLocation = () => {
+  const handleLocationSelect = (selectedLocation: { lat: number; lng: number; name: string }) => {
+    setLocation(selectedLocation);
+  };
+
+  const findCurrentLocation = () => {
     setLoadingMessage("Finding your location...");
     setError(null);
+    
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         position => {
-          setLocation(position);
+          const loc = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            name: "Current Location"
+          };
+          setLocation(loc);
           setLoadingMessage("");
-          findEvents(position);
         },
         error => {
           setError("Error finding location: " + error.message);
@@ -105,150 +238,172 @@ export default function Home() {
     }
   };
 
-  const findArtistsInEvents = () => {
-    const artistNames = relatedArtists.map(artist => artist.name);
-    const eventsWithArtists = events.filter(event =>
-      artistNames.some(artistName => event.name.includes(artistName))
-    );
-    const uniqueEvents = eventsWithArtists.filter(
-      (event, index, self) =>
-        index === self.findIndex(e => e.name === event.name)
-    );
-    setArtistsInEvents(uniqueEvents);
-  };
-
   const createPlaylist = async () => {
-    const artistNames = artistsInEvents.map(
-      event => event.performance[0].artist.displayName
-    );
-    const artistIds = relatedArtists
-      .filter(artist => artistNames.includes(artist.name))
-      .map(artist => artist.id);
+    if (!matchedEvents.length) return;
+    
+    setLoadingMessage("Creating playlist...");
+    
+    // Get unique artist IDs from matched events
+    const artistIds = new Set<string>();
+    matchedEvents.forEach(event => {
+      event.matchedArtists.forEach(match => {
+        artistIds.add(match.spotifyArtist.id);
+      });
+    });
+    
     try {
       const response = await fetch(
-        `/api/spotify/create-playlist?ids=${artistIds.join(",")}`
+        `/api/spotify/create-playlist?ids=${Array.from(artistIds).join(",")}`
       );
       const data = await response.json();
       setPlaylist(data);
+      setLoadingMessage("");
     } catch (error) {
       setError("Error creating playlist: " + (error as any).message);
+      setLoadingMessage("");
+    }
+  };
+
+  // Apply filters and sorting to matched events
+  const displayedEvents = useMemo(() => {
+    const eventFilters: Filters = {
+      dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+      dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+      priceMin: filters.priceMin,
+      priceMax: filters.priceMax
+    };
+    
+    const filtered = filterEvents(matchedEvents, eventFilters);
+    return sortEvents(filtered, sortBy);
+  }, [matchedEvents, filters, sortBy]);
+
+  const handlePageChange = (newPage: number) => {
+    if (location) {
+      findEvents(location, newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   return (
     <main className="flex flex-col container mx-auto p-4">
       {loadingMessage && <Spinner message={loadingMessage} />}
-      {error && <p className="text-red-500">{error}</p>}{" "}
+      
       {!session && <Landing />}
-      {session && session.user && !error && (
+      
+      {session && session.user && (
         <>
-          <h2>Welcome, {session.user.name}</h2>
-          <p className="text-gray-600">
-            This site uses your Spotify to find concerts near you featuring
-            artists you might like.
+          <h2 className="text-2xl font-bold mb-2">Welcome, {session.user.name}</h2>
+          <p className="text-gray-600 mb-6">
+            Let&apos;s find concerts near you featuring artists you&apos;ll love.
           </p>
-          <br />
-          <div className="flex items-center">
-            <Checkmark />
-            <h2>Found {topArtists.length} top artists</h2>
-          </div>
-          <br />
-          {relatedArtists && (
-            <div className="flex items-center">
-              <Checkmark />
-              <h2>Found {relatedArtists.length} related artists</h2>
+          
+          {/* Progress Steps */}
+          <ProgressSteps steps={progressSteps} />
+          
+          {/* Location Selection */}
+          {allArtists.length > 0 && !location && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Where are you looking for events?</h3>
+              <LocationInput
+                onLocationSelect={handleLocationSelect}
+                onCurrentLocation={findCurrentLocation}
+                loading={!!loadingMessage || loadingEvents}
+              />
             </div>
           )}
-          <br />
-          {!location && !loadingMessage && (
-            <button className="btn" onClick={findLocation}>
-              Find my location
-            </button>
-          )}
+          
+          {/* Filters and Sorting */}
           {location && (
-            <div className="flex items-center">
-              <Checkmark />
-              <h2>Found your location</h2>
-            </div>
-          )}
-          <br />
-          {location && (
-            <div className="flex items-center">
-              <Checkmark />
-              <h2>Found {events.length} events in your area</h2>
-            </div>
-          )}
-          <br />
-          {events.length > 0 && location && !artistsInEvents.length && (
-            <button className="btn" onClick={findArtistsInEvents}>
-              Let&apos;s find some shows!
-            </button>
-          )}
-          <br />
-          {artistsInEvents.length > 0 && (
             <>
-              <div className="flex items-center mb-4">
-                <Checkmark />
-                <h2>Found {artistsInEvents.length} shows for you!</h2>
-              </div>
-              <button className="btn mb-4" onClick={createPlaylist}>
-                Export to Playlist
-              </button>
+              <EventFilters
+                onFiltersChange={setFilters}
+                disabled={loadingEvents}
+              />
+              
+              {matchedEvents.length > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <div className="mb-2 sm:mb-0">
+                    <h3 className="text-lg font-semibold">
+                      {displayedEvents.length} Matching Events
+                    </h3>
+                  </div>
+                  <div className="flex gap-4 items-center">
+                    <EventSorting
+                      sortBy={sortBy}
+                      onSortChange={setSortBy}
+                      disabled={loadingEvents}
+                    />
+                    {matchedEvents.length > 0 && (
+                      <button className="btn" onClick={createPlaylist}>
+                        Export to Playlist
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           )}
+          
+          {/* Playlist Created Message */}
           {playlist && (
-            <div className="flex items-center">
-              <Checkmark />
-              <h2>
+            <div className="mb-4 p-4 bg-green-100 border border-green-400 rounded-lg">
+              <p className="text-green-700">
                 Created playlist:{" "}
                 <a
                   href={playlist.uri}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-blue-500 underline"
+                  className="font-bold underline"
                 >
                   {playlist.name}
                 </a>
-              </h2>
+              </p>
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 mt-4">
-            {artistsInEvents.map(event => (
-              <a
-                key={event.id}
-                href={event.url} //
-                target="_blank"
-                rel="noreferrer"
-                className="border border-gray-700 flex flex-col justify-between"
+          
+          {/* Events Grid */}
+          {displayedEvents.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+              {displayedEvents.map((event, index) => (
+                <EventCard key={event.id} event={event} index={index} />
+              ))}
+            </div>
+          )}
+          
+          {/* No Results Message */}
+          {location && events.length > 0 && matchedEvents.length === 0 && !loadingEvents && (
+            <div className="text-center py-8">
+              <p className="text-gray-600 mb-2">
+                No events found matching your music taste in this area.
+              </p>
+              <p className="text-sm text-gray-500">
+                Try adjusting your search radius or date range.
+              </p>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center gap-2 mt-8">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 0 || loadingEvents}
+                className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50"
               >
-                <img
-                  src={event.images[0]?.url}
-                  alt={event.name}
-                  className="w-full h-auto object-cover"
-                />
-                <div className="p-3 flex flex-col flex-grow">
-                  <h3 className="text-md font-bold mb-3">{event.name}</h3>
-                  <div className="flex justify-between flex-grow">
-                    <div className="self-end">
-                      {event._embedded?.attractions?.map(attraction => (
-                        <p key={attraction.id} className="text-gray-600">
-                          {attraction.name}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="self-end text-right">
-                      <p className="text-gray-600">
-                        {event._embedded?.venues?.[0]?.name ?? "Unknown Venue"}
-                      </p>{" "}
-                      <p className="text-gray-600">
-                        {event.dates.start.localDate}
-                      </p>{" "}
-                    </div>
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
+                Previous
+              </button>
+              <span className="px-4 py-2">
+                Page {currentPage + 1} of {totalPages}
+              </span>
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1 || loadingEvents}
+                className="px-4 py-2 border border-gray-300 rounded-md disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </>
       )}
     </main>
