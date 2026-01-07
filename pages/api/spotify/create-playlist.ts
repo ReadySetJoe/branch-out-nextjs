@@ -13,7 +13,11 @@ export default async function handler(
 
   try {
     const playlistName = getPlaylistName();
-    const data = await spotifyApi.createPlaylist(playlistName);
+    const today = new Date();
+    const data = await spotifyApi.createPlaylist(playlistName, {
+      description: `A playlist from branchout.live created on ${today.toDateString()}`,
+      public: false,
+    });
     const trackUris = [];
     for (const artistId of artistIds) {
       const tracks = await spotifyApi.getArtistTopTracks(artistId, "US");
