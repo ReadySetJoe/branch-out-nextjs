@@ -8,14 +8,14 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { 
-    lat, 
-    lng, 
+  const {
+    lat,
+    lng,
     radius = "50",
     startDateTime,
     endDateTime,
     page = "0",
-    size = "50"
+    size = "1000",
   } = req.query;
 
   if (!lat || !lng) {
@@ -56,7 +56,7 @@ export default async function handler(
       size: data.page?.size || 0,
       totalElements: data.page?.totalElements || 0,
       totalPages: data.page?.totalPages || 0,
-      number: data.page?.number || 0
+      number: data.page?.number || 0,
     };
 
     res.status(200).json({ events, pagination });
