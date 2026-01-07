@@ -8,7 +8,7 @@ const Landing: React.FC = () => {
         Welcome to <code>branch.out</code>
       </h1>
       <p className="text-lg text-center mb-6">
-        branch.out is your ultimate music event companion.
+        The simplest way to find music events tailored to your taste.
       </p>
       <ol className="list-decimal list-inside mb-6">
         <p className="mb-4">All you need to do is...</p>

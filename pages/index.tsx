@@ -197,7 +197,14 @@ export default function Home() {
       
       // Automatically match events with artists
       if (data.events && data.events.length > 0) {
+        // Debug: Log event structure to understand matching
+        console.log('Events from API:', data.events.length);
+        console.log('Sample event:', JSON.stringify(data.events[0], null, 2));
+        console.log('Sample attractions:', data.events[0]?._embedded?.attractions);
+        console.log('All artists count:', allArtists.length);
+
         const matched = matchEventsWithArtists(data.events, allArtists, 0.7);
+        console.log('Matched events:', matched.length);
         setMatchedEvents(matched);
       } else {
         setMatchedEvents([]);
