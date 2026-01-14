@@ -210,16 +210,17 @@ export default function Home() {
     let page = 0;
     let totalPages = 1;
     let stoppedEarly = false;
+    const MAX_PAGES = 5; // Cap at 5 pages to avoid rate limiting (5 * 200 = 1000 events max)
 
     // Fetch pages from the API until done or error
-    while (page < totalPages) {
+    while (page < totalPages && page < MAX_PAGES) {
       try {
         const params = new URLSearchParams({
           lat: loc.lat.toString(),
           lng: loc.lng.toString(),
           radius: filters.radius.toString(),
           page: page.toString(),
-          size: "50",
+          size: "200", // Max page size to reduce total API calls
         });
 
         if (filters.dateFrom) params.append("startDateTime", filters.dateFrom);
@@ -243,9 +244,9 @@ export default function Home() {
           break;
         }
 
-        // Update total pages from first response
+        // Update total pages from first response (capped at MAX_PAGES)
         if (page === 0) {
-          totalPages = data.pagination?.totalPages || 1;
+          totalPages = Math.min(data.pagination?.totalPages || 1, MAX_PAGES);
         }
 
         setScanProgress({ current: page + 1, total: totalPages });
@@ -265,9 +266,9 @@ export default function Home() {
 
         page++;
 
-        // Add a small delay between requests to avoid rate limiting
+        // Add delay between requests to avoid rate limiting (Ticketmaster limits ~5 req/sec)
         if (page < totalPages) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 350));
         }
       } catch (error) {
         // Network or other error - stop fetching but keep what we have

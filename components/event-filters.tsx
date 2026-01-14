@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface EventFiltersProps {
   onFiltersChange: (filters: {
@@ -16,7 +16,9 @@ export default function EventFilters({
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [radius, setRadius] = useState<number>(50);
+  const [debouncedRadius, setDebouncedRadius] = useState<number>(50);
   const [isExpanded, setIsExpanded] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Set default dates (today to 6 months from now)
   useEffect(() => {
@@ -28,13 +30,29 @@ export default function EventFilters({
     setDateTo(sixMonthsLater.toISOString().split("T")[0]);
   }, []);
 
+  // Debounce radius changes - only trigger API call after user stops dragging
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setDebouncedRadius(radius);
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [radius]);
+
   useEffect(() => {
     onFiltersChange({
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
-      radius,
+      radius: debouncedRadius,
     });
-  }, [dateFrom, dateTo, radius, onFiltersChange]);
+  }, [dateFrom, dateTo, debouncedRadius, onFiltersChange]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "Any";
