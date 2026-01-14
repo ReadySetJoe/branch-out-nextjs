@@ -52,8 +52,8 @@ export default function Home() {
     radius: number;
     priceMin?: number;
     priceMax?: number;
-  }>({ radius: 50 });
-  const [sortBy, setSortBy] = useState<SortOption>("match");
+  }>({ radius: 100 });
+  const [sortBy, setSortBy] = useState<SortOption>("date");
 
   // Pagination - now client-side over matched events
   const [currentPage, setCurrentPage] = useState(0);
@@ -488,7 +488,10 @@ export default function Home() {
                       disabled={loadingEvents}
                     />
                     {matchedEvents.length > 0 && (
-                      <button className="btn flex items-center gap-2" onClick={createPlaylist}>
+                      <button
+                        className="btn flex items-center gap-2"
+                        onClick={createPlaylist}
+                      >
                         <svg
                           className="w-4 h-4"
                           fill="currentColor"

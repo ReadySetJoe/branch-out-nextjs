@@ -15,8 +15,8 @@ export default function EventFilters({
 }: EventFiltersProps) {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [radius, setRadius] = useState<number>(100);
-  const [debouncedRadius, setDebouncedRadius] = useState<number>(100);
+  const [radius, setRadius] = useState<number>(50);
+  const [debouncedRadius, setDebouncedRadius] = useState<number>(50);
   const [isExpanded, setIsExpanded] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
