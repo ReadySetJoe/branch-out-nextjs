@@ -22,7 +22,9 @@ const Landing: React.FC = () => {
           featuring artists you already love — and ones you&apos;re about to.
         </p>
 
-        <Login />
+        <div className="inline-block">
+          <Login />
+        </div>
       </div>
 
       {/* How it Works */}

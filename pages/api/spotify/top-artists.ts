@@ -8,8 +8,10 @@ export default async function handler(
   await refreshAccessToken(req, res);
 
   try {
-    await spotifyApi.refreshAccessToken();
     const data = await spotifyApi.getMyTopArtists();
     res.status(200).json(data.body);
-  } catch (error: any) {}
+  } catch (error: any) {
+    console.error("Error fetching top artists:", error);
+    res.status(500).json({ error: "Failed to fetch top artists" });
+  }
 }
