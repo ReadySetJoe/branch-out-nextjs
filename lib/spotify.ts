@@ -18,7 +18,8 @@ export const refreshAccessToken = async (
   spotifyApi.setAccessToken(accessToken as string);
   spotifyApi.setRefreshToken(refreshToken as string);
   try {
-    await spotifyApi.refreshAccessToken();
+    const data = await spotifyApi.refreshAccessToken();
+    spotifyApi.setAccessToken(data.body.access_token);
   } catch (error: any) {
     console.error("Error refreshing access token:", error);
   }
