@@ -1,4 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+
+const DISTANCE_OPTIONS = [
+  { value: 10, label: "10 miles" },
+  { value: 25, label: "25 miles" },
+  { value: 50, label: "50 miles" },
+  { value: 100, label: "100 miles" },
+  { value: 150, label: "150 miles" },
+  { value: 200, label: "200 miles" },
+];
 
 interface EventFiltersProps {
   onFiltersChange: (filters: {
@@ -16,9 +25,7 @@ export default function EventFilters({
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [radius, setRadius] = useState<number>(50);
-  const [debouncedRadius, setDebouncedRadius] = useState<number>(50);
   const [isExpanded, setIsExpanded] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Set default dates (today to 6 months from now)
   useEffect(() => {
@@ -30,29 +37,13 @@ export default function EventFilters({
     setDateTo(sixMonthsLater.toISOString().split("T")[0]);
   }, []);
 
-  // Debounce radius changes - only trigger API call after user stops dragging
-  useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    debounceRef.current = setTimeout(() => {
-      setDebouncedRadius(radius);
-    }, 500);
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, [radius]);
-
   useEffect(() => {
     onFiltersChange({
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
-      radius: debouncedRadius,
+      radius,
     });
-  }, [dateFrom, dateTo, debouncedRadius, onFiltersChange]);
+  }, [dateFrom, dateTo, radius, onFiltersChange]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "Any";
@@ -141,27 +132,19 @@ export default function EventFilters({
               <label className="block text-sm font-medium text-[var(--text-secondary)] mb-3">
                 Search Radius
               </label>
-              <div className="space-y-2">
-                <input
-                  type="range"
-                  min="10"
-                  max="200"
-                  step="10"
-                  value={radius}
-                  onChange={e => setRadius(parseInt(e.target.value))}
-                  disabled={disabled}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-[var(--text-muted)]">
-                  <span>10 mi</span>
-                  <span className="font-medium text-[var(--primary)]">
-                    {radius} miles
-                  </span>
-                  <span>200 mi</span>
-                </div>
-              </div>
+              <select
+                value={radius}
+                onChange={e => setRadius(parseInt(e.target.value))}
+                disabled={disabled}
+                className="input"
+              >
+                {DISTANCE_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <br />
 
             {/* Date From */}
             <div>
