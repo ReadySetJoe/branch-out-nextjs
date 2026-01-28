@@ -88,7 +88,7 @@ const Login = () => {
 
   return (
     <button
-      onClick={() => signIn("spotify")}
+      onClick={() => signIn("spotify", { callbackUrl: "/discover" })}
       className="flex items-center gap-2 btn"
     >
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
