@@ -396,7 +396,7 @@ export default function Discover() {
       {session && session.user && (
         <div className="container mx-auto px-4 py-8">
           {/* Welcome Header */}
-          <div className="mb-8">
+          <div className="mb-8 text-center">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
               Welcome back, {session.user.name?.split(" ")[0]}
             </h2>
@@ -410,30 +410,34 @@ export default function Discover() {
 
           {/* Location Selection */}
           {allArtists.length > 0 && !location && (
-            <div className="mb-8">
+            <div className="mb-8 text-center">
               <h3 className="text-xl font-semibold text-white mb-4">
                 Where are you looking for events?
               </h3>
-              <LocationInput
-                onLocationSelect={handleLocationSelect}
-                onCurrentLocation={findCurrentLocation}
-                loading={!!loadingMessage || loadingEvents}
-              />
+              <div className="flex justify-center">
+                <LocationInput
+                  onLocationSelect={handleLocationSelect}
+                  onCurrentLocation={findCurrentLocation}
+                  loading={!!loadingMessage || loadingEvents}
+                />
+              </div>
             </div>
           )}
 
           {/* Filters and Results */}
           {location && (
-            <>
-              <EventFilters
-                onFiltersChange={setFilters}
-                disabled={loadingEvents}
-              />
+            <div className="flex flex-col items-center">
+              <div className="w-full max-w-2xl">
+                <EventFilters
+                  onFiltersChange={setFilters}
+                  disabled={loadingEvents}
+                />
+              </div>
 
               {/* Scanning Progress */}
               {scanProgress && (
-                <div className="mb-6 p-4 rounded-xl bg-[var(--surface)] border border-[var(--primary)]/30">
-                  <div className="flex items-center gap-3">
+                <div className="w-full max-w-xl mb-6 p-4 rounded-xl bg-[var(--surface)] border border-[var(--primary)]/30">
+                  <div className="flex items-center justify-center gap-3">
                     <div className="w-5 h-5 rounded-full border-2 border-[var(--primary)] border-t-transparent animate-spin" />
                     <p className="text-[var(--text-secondary)]">
                       Scanning events... (page {scanProgress.current} of{" "}
@@ -450,8 +454,8 @@ export default function Discover() {
 
               {/* Partial Results Warning */}
               {partialResults && !scanProgress && (
-                <div className="mb-6 p-4 rounded-xl bg-[var(--surface)] border border-yellow-500/30">
-                  <div className="flex items-center gap-3">
+                <div className="w-full max-w-xl mb-6 p-4 rounded-xl bg-[var(--surface)] border border-yellow-500/30">
+                  <div className="flex items-center justify-center gap-3">
                     <svg
                       className="w-5 h-5 text-yellow-500 flex-shrink-0"
                       fill="none"
@@ -474,8 +478,8 @@ export default function Discover() {
 
               {/* Results Header */}
               {filteredAndSortedEvents.length > 0 && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-                  <div>
+                <div className="w-full max-w-2xl flex flex-col sm:flex-row sm:items-center sm:justify-center mb-6 gap-4">
+                  <div className="text-center sm:text-left">
                     <h3 className="text-xl font-semibold text-white">
                       {filteredAndSortedEvents.length} Matching Events
                     </h3>
@@ -483,7 +487,7 @@ export default function Discover() {
                       Showing page {currentPage + 1} of {totalPages || 1}
                     </p>
                   </div>
-                  <div className="flex gap-3 items-center">
+                  <div className="flex gap-3 items-center justify-center">
                     <EventSorting
                       sortBy={sortBy}
                       onSortChange={setSortBy}
@@ -507,13 +511,13 @@ export default function Discover() {
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* Playlist Created Message */}
           {playlist && (
-            <div className="mb-6 p-4 rounded-xl bg-[var(--primary)]/10 border border-[var(--primary)]/30">
-              <div className="flex items-center gap-3">
+            <div className="mb-6 p-4 rounded-xl bg-[var(--primary)]/10 border border-[var(--primary)]/30 max-w-xl mx-auto">
+              <div className="flex items-center justify-center gap-3">
                 <svg
                   className="w-5 h-5 text-[var(--primary)]"
                   fill="none"

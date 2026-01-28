@@ -1,4 +1,5 @@
 import { SessionProvider } from "next-auth/react";
+import Head from "next/head";
 import "../styles/globals.css";
 
 import { Session } from "next-auth";
@@ -11,6 +12,9 @@ export default function App({
 }: AppProps & { pageProps: { session: Session } }) {
   return (
     <SessionProvider session={session}>
+      <Head>
+        <title>Branch Out</title>
+      </Head>
       <Header />
       <Component {...pageProps} />
     </SessionProvider>
